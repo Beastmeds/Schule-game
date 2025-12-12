@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Dodger Ultimate</title>
+<style>
+:root{
+  --bg:#0b0f1a;
+  --bg-alt:#f5f7fb;
+  --neon1:#00e5ff;
+  --neon2:#ff4de0;
+  --accent:#ffd166;
+  --text:#dbe7ff;
+}
+[data-theme="light"]{
+  --bg:#f5f7fb;
+  --bg-alt:#0b0f1a;
+  --neon1:#006b7a;
+  --neon2:#9a1671;
+  --accent:#b86b00;
+  --text:#0b1220;
+}
+*{box-sizing:border-box;}
+html, body{height:100%;margin:0;background:var(--bg);font-family:Inter,system-ui,Arial;color:var(--text);}
+.wrap{display:grid;place-items:center;height:100%;padding:18px;}
+canvas{display:block;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.45);background:linear-gradient(180deg,rgba(3,7,18,0.9),rgba(7,13,36,0.95)); z-index:1; pointer-events:none;}
+.ui{position:fixed;left:18px;top:18px;font-size:14px; z-index:100;}
+.hint{position:fixed;right:18px;top:18px;text-align:right;opacity:.95; z-index:100;}
+button{background:transparent;border:1px solid rgba(255,255,255,.08);color:var(--text);padding:8px 12px;border-radius:8px;backdrop-filter:blur(4px);cursor:pointer;}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center; z-index:1000; pointer-events:auto;}
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));padding:20px;border-radius:12px;text-align:center;max-width:520px;}
+h1{margin:0 0 8px;font-size:24px;color:var(--neon1);text-shadow:0 0 12px rgba(0,229,255,.12);}
+.small{font-size:13px;color:rgba(255,255,255,0.8);}
+.controls{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+.footer{position:fixed;left:18px;bottom:18px;color:rgba(255,255,255,0.7);font-size:13px;}
+.settings{position:fixed;right:18px;bottom:18px;background:rgba(0,0,0,0.22);padding:10px;border-radius:10px;}
+label{display:flex;gap:8px;align-items:center;}
+select,input[type=range]{margin-left:8px;}
+.touchbar{position:fixed;left:0;right:0;bottom:0;height:70px;display:none;align-items:center;justify-content:center; z-index:100;}
+.touchbtn{height:56px;width:120px;border-radius:12px;background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;}
+@media(max-width:720px){canvas{width:100%;height:60vh;}.touchbar{display:flex}}
+</style>
+</head>
+<body data-theme="dark">
+<div class="wrap">
+  <canvas id="game" width="1100" height="640" aria-label="Neon Dodger Spiel"></canvas>
+</div>
+<div class="ui">Score: <span id="score">0</span> • Level: <span id="level">1</span></div>
+<div class="hint">Highscore: <span id="high">0</span></div>
+<div class="footer">Neon Dodger — ← → / A D / Touch — Boss & Loot</div>
+
+<div id="start" class="overlay">
+  <div class="panel">
+    <h1>Neon Dodger — Ultimate</h1>
+    <p class="small">Boss-Angriffe, Loot, Teleport, Slow-Motion, Online-Leaderboard, Power-Ups.</p>
+    <div class="controls">
+      <button id="btn-start">Spiel starten</button>
+      <button id="btn-tutorial">Tutorial</button>
+    </div>
+    <div class="controls" style="margin-top:12px">
+      <label>Theme<select id="themeSel"><option value="dark">Dunkel</option><option value="light">Hell</option></select></label>
+      <label>Schwierigkeit<select id="diffSel"><option value="easy">Einfach</option><option value="normal" selected>Normal</option><option value="hard">Schwer</option></select></label>
+    </div>
+  </div>
+</div>
+
+<div id="gameOver" class="overlay" style="display:none">
+  <div class="panel">
+    <h1 id="goTitle" style="color:var(--neon2)">Game Over</h1>
+    <p id="finalScore"></p>
+    <p id="lootMsg"></p>
+    <div class="controls">
+      <button id="btn-restart">Nochmal</button>
+      <button id="btn-home">Zurück</button>
+      <button id="btn-leaderboard">Leaderboard</button>
+    </div>
+  </div>
+</div>
+
+<div class="settings">
+  <label>Musik <input id="soundToggle" type="checkbox" checked></label>
+  <label>Volume <input id="vol" type="range" min="0" max="1" step="0.05" value="0.7"></label>
+  <label>FPS <select id="fpsSel"><option>60</option><option>30</option></select></label>
+</div>
+
+<div class="touchbar" id="touchbar">
+  <div class="touchbtn" id="leftBtn">◀</div>
+  <div style="width:16px"></div>
+  <div class="touchbtn" id="rightBtn">▶</div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, push, set, query, orderByChild, limitToLast, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBfldLBX55zp-NOd1KVBmf-7emdWZswDTs",
+  authDomain: "beast-bot-dashboard.firebaseapp.com",
+  projectId: "beast-bot-dashboard",
+  storageBucket: "beast-bot-dashboard.firebasestorage.app",
+  messagingSenderId: "805230302778",
+  appId: "1:805230302778:web:7af83c22997e6417514703",
+  measurementId: "G-WPKWQ7W11T"
+};
+
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const database = getDatabase(app);
+const leaderboardRef = ref(database, 'leaderboard');
+
+async function submitOnlineScore(name, score) {
+  if(!name) name="Anonym";
+  const entry = push(leaderboardRef);
+  await set(entry, {name, score});
+}
+
+async function loadLeaderboard(callback) {
+  const q = query(leaderboardRef, orderByChild('score'), limitToLast(10));
+  const snapshot = await get(q);
+  const list=[];
+  snapshot.forEach(child=>list.push(child.val()));
+  list.sort((a,b)=>b.score-b.score);
+  callback(list);
+}
+</script>
+
+<script>
+// --- Spielvariablen ---
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W=canvas.width, H=canvas.height;
+(function scale(){ const dpr=Math.min(window.devicePixelRatio||1,2); canvas.width=W*dpr; canvas.height=H*dpr; canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(dpr,0,0,dpr,0,0);})();
+
+let keys={}, score=0, high=parseInt(localStorage.getItem('neon-high')||'0'), gameRunning=false;
+document.getElementById('high').textContent=high;
+const player={x:W/2,y:H-110,w:40,h:40,speed:7};
+const obstacles=[], powerups=[], parts=[];
+let obstacleTimer=0, obstacleInterval=70, level=1, levelTimer=0, invuln=0;
+let boss=null, inBoss=false, difficulty='normal';
+let soundOn=true, masterVol=0.7;
+
+// --- Event Listener ---
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-restart').addEventListener('click', startGame);
+document.getElementById('btn-home').addEventListener('click', ()=>{
+  document.getElementById('gameOver').style.display='none';
+  document.getElementById('start').style.display='flex';
+});
+document.getElementById('btn-tutorial').addEventListener('click', ()=>alert('Boss-Angriffe, PowerUps: Gelb=Unverwundbarkeit, Grün=Slow, Blau=Score, Lila=Teleport, Cyan=Speed'));
+document.getElementById('btn-leaderboard').addEventListener('click', ()=>{
+  loadLeaderboard(list=>{
+    let msg="🌐 Leaderboard:\n";
+    list.forEach((p,i)=>msg+=`${i+1}. ${p.name}: ${p.score}\n`);
+    alert(msg);
+  });
+});
+document.getElementById('themeSel').addEventListener('change', e=>document.body.setAttribute('data-theme',e.target.value));
+document.getElementById('diffSel').addEventListener('change', e=>difficulty=e.target.value);
+document.getElementById('soundToggle').addEventListener('change', e=>soundOn=e.target.checked);
+document.getElementById('vol').addEventListener('input', e=>masterVol=parseFloat(e.target.value));
+
+let leftHold=false, rightHold=false;
+document.getElementById('leftBtn').addEventListener('touchstart', e=>{ e.preventDefault(); leftHold=true; });
+document.getElementById('leftBtn').addEventListener('touchend', e=>{ e.preventDefault(); leftHold=false; });
+document.getElementById('rightBtn').addEventListener('touchstart', e=>{ e.preventDefault(); rightHold=true; });
+document.getElementById('rightBtn').addEventListener('touchend', e=>{ e.preventDefault(); rightHold=false; });
+
+// --- Game Loop ---
+function startGame(){
+  score=0; level=1; obstacleInterval=70; obstacles.length=0; powerups.length=0; inBoss=false; boss=null;
+  gameRunning=true; invuln=0;
+  document.getElementById('start').style.display='none';
+  document.getElementById('gameOver').style.display='none';
+  requestAnimationFrame(loop);
+}
+
+function endGame(){
+  gameRunning=false;
+  document.getElementById('finalScore').textContent='Score: '+Math.floor(score);
+  if(Math.floor(score)>high){ high=Math.floor(score); localStorage.setItem('neon-high',high); document.getElementById('high').textContent=high;}
+  document.getElementById('gameOver').style.display='flex';
+  let name=prompt("Gib deinen Namen ein:");
+  submitOnlineScore(name, Math.floor(score));
+}
+
+function loop(){
+  if(gameRunning){ update(); draw(); requestAnimationFrame(loop); }
+}
+
+// --- Hilfsfunktionen ---
+function rectIntersect(x1,y1,w1,h1,x2,y2,w2,h2){ return !(x2>x1+w1||x2+w2<x1||y2>y1+h1||y2+h2<y1);}
+function rectCircleColl(rx,ry,rw,rh,cx,cy,cr){ let closestX=Math.max(rx,Math.min(cx,rx+rw)); let closestY=Math.max(ry,Math.min(cy,ry+rh)); let dx=cx-closestX; let dy=cy-closestY; return (dx*dx+dy*dy)<cr*cr;}
+function drawRect(x,y,w,h,col,fill){ ctx.fillStyle=col; fill?ctx.fillRect(x,y,w,h):ctx.strokeRect(x,y,w,h);}
+function drawCircle(x,y,r,col){ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();}
+function fillGlow(x,y,r,col){ let grad=ctx.createRadialGradient(x,y,0,x,y,r); grad.addColorStop(0,col); grad.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=grad; ctx.fillRect(x-r,y-r,r*2,r*2);}
+function beep(freq,time=0.06){ if(!soundOn) return; const o=ctx.audioCtx||new (window.AudioContext||window.webkitAudioContext)(); const g=o.createGain(); o.createOscillator().connect(g); g.connect(o.destination);}
+
+// --- Update & Draw (inkl. Boss, PowerUps, Levels) ---
+// Für die volle Version, kopiere hier die Update- und Draw-Logik aus deinem letzten fertigen Spielcode
+
+</script>
+</body>
+</html>
