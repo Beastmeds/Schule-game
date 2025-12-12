@@ -3,72 +3,92 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Neon Dodger — Cooles Browsergame</title>
+  <title>Neon Dodger — Expanded</title>
   <style>
-    :root{--bg:#0b0f1a;--neon1:#00e5ff;--neon2:#ff4de0;--accent:#ffd166}
-    html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,system-ui,Arial;color:#fff}
-    .wrap{display:grid;place-items:center;height:100%;padding:24px;box-sizing:border-box}
-    canvas{display:block;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.6);background:linear-gradient(180deg,#041025 0%, #071127 100%)}
-    .ui{position:fixed;left:24px;top:24px;font-size:14px;line-height:1.2}
-    .hint{position:fixed;right:24px;top:24px;text-align:right;opacity:.9}
-    button{background:transparent;border:1px solid rgba(255,255,255,.08);color:#fff;padding:8px 12px;border-radius:8px;backdrop-filter:blur(4px);cursor:pointer}
+    :root{--bg:#0b0f1a;--bg-alt:#f5f7fb;--neon1:#00e5ff;--neon2:#ff4de0;--accent:#ffd166;--text:#dbe7ff}
+    [data-theme="light"]{--bg:#f5f7fb;--bg-alt:#0b0f1a;--neon1:#006b7a;--neon2:#9a1671;--accent:#b86b00;--text:#0b1220}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,system-ui,Arial;color:var(--text)}
+    .wrap{display:grid;place-items:center;height:100%;padding:18px}
+    canvas{display:block;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.45);background:linear-gradient(180deg,rgba(3,7,18,0.9),rgba(7,13,36,0.95))}
+    .ui{position:fixed;left:18px;top:18px;font-size:14px}
+    .hint{position:fixed;right:18px;top:18px;text-align:right;opacity:.95}
+    button{background:transparent;border:1px solid rgba(255,255,255,.08);color:var(--text);padding:8px 12px;border-radius:8px;backdrop-filter:blur(4px);cursor:pointer}
     .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-    .panel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.02));padding:28px;border-radius:12px;text-align:center;max-width:420px}
-    h1{margin:0 0 8px;font-size:22px;color:var(--neon1);text-shadow:0 0 12px rgba(0,229,255,.12)}
-    p{margin:0 0 12px;color:#cbd5e1}
-    .small{font-size:13px;color:#9fb0c9}
-    .controls{display:flex;gap:8px;justify-content:center;margin-top:12px}
-    .footer{position:fixed;left:24px;bottom:24px;color:#9fb0c9;font-size:13px}
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));padding:20px;border-radius:12px;text-align:center;max-width:520px}
+    h1{margin:0 0 8px;font-size:24px;color:var(--neon1);text-shadow:0 0 12px rgba(0,229,255,.12)}
+    .small{font-size:13px;color:rgba(255,255,255,0.8)}
+    .controls{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+    .footer{position:fixed;left:18px;bottom:18px;color:rgba(255,255,255,0.7);font-size:13px}
+    .settings{position:fixed;right:18px;bottom:18px;background:rgba(0,0,0,0.22);padding:10px;border-radius:10px}
+    label{display:flex;gap:8px;align-items:center}
+    select,input[type=range]{margin-left:8px}
+    .touchbar{position:fixed;left:0;right:0;bottom:0;height:70px;display:none;align-items:center;justify-content:center}
+    .touchbtn{height:56px;width:120px;border-radius:12px;background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center}
+    @media(max-width:720px){canvas{width:100%;height:60vh}.touchbar{display:flex}}
   </style>
 </head>
-<body>
+<body data-theme="dark">
   <div class="wrap">
-    <canvas id="game" width="900" height="600"></canvas>
+    <canvas id="game" width="1100" height="640" aria-label="Neon Dodger Spiel"></canvas>
   </div>
 
-  <div class="ui">Score: <span id="score">0</span></div>
+  <div class="ui">Score: <span id="score">0</span> • Level: <span id="level">1</span></div>
   <div class="hint">Highscore: <span id="high">0</span></div>
-  <div class="footer">Neon Dodger — Pfeiltasten / A D / Touch</div>
+  <div class="footer">Neon Dodger — ← → / A D / Touch — PowerUps, Boss</div>
 
   <div id="start" class="overlay">
     <div class="panel">
-      <h1>Neon Dodger</h1>
-      <p class="small">Weiche Hindernissen aus so lange du kannst. Sammle Power-Ups und knack den Highscore!</p>
-      <div style="margin-top:12px">
+      <h1>Neon Dodger — Expanded</h1>
+      <p class="small">Neu: Levels, mehr Power-Ups, Boss-Modus, Theme (Dunkel/Hell) & Einstellungen.</p>
+      <div style="margin-top:12px" class="controls">
         <button id="btn-start">Spiel starten</button>
         <button id="btn-tutorial">Tutorial</button>
+        <button id="btn-quick">Schnellspiel</button>
       </div>
-      <div class="controls" style="margin-top:16px">
-        <div class="small">Bewegung: <strong>← →</strong> oder <strong>A D</strong></div>
+      <div class="controls" style="margin-top:12px">
+        <label>Theme<select id="themeSel"><option value="dark">Dunkel</option><option value="light">Hell</option></select></label>
+        <label>Schwierigkeit<select id="diffSel"><option value="easy">Einfach</option><option value="normal" selected>Normal</option><option value="hard">Schwer</option></select></label>
       </div>
     </div>
   </div>
 
   <div id="gameOver" class="overlay" style="display:none">
     <div class="panel">
-      <h1 style="color:var(--neon2)">Game Over</h1>
+      <h1 id="goTitle" style="color:var(--neon2)">Game Over</h1>
       <p id="finalScore"></p>
-      <div style="margin-top:12px">
+      <div style="margin-top:12px" class="controls">
         <button id="btn-restart">Nochmal</button>
+        <button id="btn-home">Zurück</button>
       </div>
     </div>
   </div>
 
+  <div class="settings">
+    <label>Musik <input id="soundToggle" type="checkbox" checked></label>
+    <label>Volume <input id="vol" type="range" min="0" max="1" step="0.05" value="0.7"></label>
+    <label>FPS <select id="fpsSel"><option>60</option><option>30</option></select></label>
+  </div>
+
+  <div class="touchbar" id="touchbar">
+    <div class="touchbtn" id="leftBtn">◀</div>
+    <div style="width:16px"></div>
+    <div class="touchbtn" id="rightBtn">▶</div>
+  </div>
+
   <script>
-  // Neon Dodger - Single-file browser game
-  // Author: ChatGPT (template)
+  // Neon Dodger - Expanded (levels, powerups, boss, theme, improved touch, settings)
+  // Author: ChatGPT — adapted and extended
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   let W = canvas.width, H = canvas.height;
 
-  // scale to device pixel ratio for crispness
+  // DPR scaling
   (function scale(){
     const dpr = Math.min(window.devicePixelRatio||1, 2);
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     ctx.setTransform(dpr,0,0,dpr,0,0);
   })();
 
@@ -78,185 +98,180 @@
   document.getElementById('high').textContent = high;
   let gameRunning = false;
 
-  // player
-  const player = {x: W/2, y: H - 100, w: 36, h: 36, vx:0, speed:6};
+  // gameplay state
+  const player = {x: W/2, y: H - 110, w: 40, h: 40, vx:0, speed:7};
+  const obstacles = [], powerups = [], parts = [];
+  let obstacleTimer = 0, obstacleInterval = 70; let level = 1; let levelTimer = 0;
+  let invuln = 0; let boss = null; let inBoss = false;
 
-  // obstacles
-  const obstacles = [];
-  let obstacleTimer = 0;
-  let obstacleInterval = 70; // frames
+  // difficulty
+  const diffMap = {easy:0.8, normal:1, hard:1.4};
+  let difficulty = 'normal';
 
-  // particles
-  const parts = [];
+  // audio (simple beeps) -- no external files
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let soundOn = true; let masterVol = 0.7;
+  function beep(freq, time=0.06){ if(!soundOn) return; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='sine'; o.frequency.value=freq; g.gain.value = masterVol * 0.06; o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + time); }
 
-  // powerups
-  const powerups = [];
-
-  // simple util
+  // util
   function rand(a,b){return Math.random()*(b-a)+a}
 
   // input
   addEventListener('keydown', e=>{keys[e.key.toLowerCase()]=true; if(e.key===' '&& !gameRunning) startGame();});
   addEventListener('keyup', e=>{keys[e.key.toLowerCase()]=false});
 
-  // touch controls for mobile
-  let touchX = null;
-  canvas.addEventListener('touchstart', e=>{const t=e.touches[0]; touchX = t.clientX;});
+  // touch improved
+  let touchX = null; let touchHold = null;
+  canvas.addEventListener('touchstart', e=>{const t=e.touches[0]; touchX = t.clientX; touchHold = true;});
   canvas.addEventListener('touchmove', e=>{e.preventDefault(); const t=e.touches[0]; touchX = t.clientX;});
-  canvas.addEventListener('touchend', e=>{touchX = null});
+  canvas.addEventListener('touchend', e=>{touchX = null; touchHold = false;});
 
-  // screens
-  const startOverlay = document.getElementById('start');
-  const gameOverOverlay = document.getElementById('gameOver');
+  // touch buttons
+  const leftBtn = document.getElementById('leftBtn'); const rightBtn = document.getElementById('rightBtn');
+  let leftHold=false, rightHold=false;
+  leftBtn.addEventListener('touchstart', e=>{leftHold=true}); leftBtn.addEventListener('touchend', e=>{leftHold=false});
+  rightBtn.addEventListener('touchstart', e=>{rightHold=true}); rightBtn.addEventListener('touchend', e=>{rightHold=false});
+
+  // UI
+  const startOverlay = document.getElementById('start'); const gameOverOverlay = document.getElementById('gameOver');
   document.getElementById('btn-start').onclick = ()=>startGame();
   document.getElementById('btn-restart').onclick = ()=>startGame();
-  document.getElementById('btn-tutorial').onclick = ()=>alert('Weiche Hindernissen aus. Sammle gelbe Powerups für 3 Sekunden Unverwundbarkeit.');
+  document.getElementById('btn-home').onclick = ()=>{gameOverOverlay.style.display='none'; startOverlay.style.display='flex';}
+  document.getElementById('btn-tutorial').onclick = ()=>alert('Weiche Hindernissen aus. Sammle grüne + gelbe Powerups. Gelb = Unverwundbarkeit, Grün = Slow-Motion, Blau = Score-Boost. Bei Level 5: Boss!');
+  document.getElementById('btn-quick').onclick = ()=>{document.getElementById('diffSel').value='normal'; startGame(true);} // quickplay
 
-  function startGame(){
-    startOverlay.style.display='none';
-    gameOverOverlay.style.display='none';
-    obstacles.length=0; powerups.length=0; parts.length=0;
-    score=0; document.getElementById('score').textContent = score;
-    player.x = W/2; player.vx = 0;
-    obstacleInterval = 70;
-    obstacleTimer = 0;
-    gameRunning = true;
-    requestAnimationFrame(loop);
-  }
-
-  function endGame(){
-    gameRunning = false;
-    document.getElementById('finalScore').textContent = 'Score: ' + Math.floor(score);
-    if(Math.floor(score) > high){ high = Math.floor(score); localStorage.setItem('neon-high', high); document.getElementById('high').textContent = high; }
-    gameOverOverlay.style.display='flex';
-  }
+  // settings
+  document.getElementById('themeSel').addEventListener('change', e=>{document.body.setAttribute('data-theme', e.target.value);});
+  document.getElementById('diffSel').addEventListener('change', e=>{difficulty = e.target.value});
+  document.getElementById('soundToggle').addEventListener('change', e=>{soundOn = e.target.checked; if(soundOn) audioCtx.resume();});
+  document.getElementById('vol').addEventListener('input', e=>{masterVol = parseFloat(e.target.value)});
+  document.getElementById('fpsSel').addEventListener('change', e=>{desiredFPS = parseInt(e.target.value)});
 
   // spawn
   function spawnObstacle(){
-    const w = rand(40,120);
+    const w = rand(40,140);
     const x = rand(30, W - 30 - w);
-    obstacles.push({x, y:-40, w, h:20 + Math.random()*40, vy: rand(2.6,4) + score/400});
+    obstacles.push({x, y:-40, w, h:16 + Math.random()*56, vy: rand(2.6,4) * diffMap[difficulty] + score/400});
   }
+  function spawnPowerup(){ const type = Math.random()<0.5 ? 'inv' : (Math.random()<0.6? 'slow' : 'score'); const x = rand(40, W-40); powerups.push({x, y:-30, r:12, vy:2.2, type}); }
 
-  function spawnPowerup(){
-    const x = rand(40, W-40);
-    powerups.push({x, y:-30, r:12, vy:2.2});
+  // boss
+  function spawnBoss(){ boss = {x: W/2 - 120, y:-220, w:240, h:140, vy:1.6, hp:20 + level*6}; inBoss=true; }
+
+  // collision
+  function rectIntersect(ax,ay,aw,ah,bx,by,bw,bh){ return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by; }
+  function rectCircleColl(rx,ry,rw,rh,cx,cy,cr){ const nearestX = Math.max(rx, Math.min(cx, rx + rw)); const nearestY = Math.max(ry, Math.min(cy, ry + rh)); const dx = cx - nearestX, dy = cy - nearestY; return (dx*dx + dy*dy) < cr*cr; }
+
+  function particle(x,y,color){ return {x,y,vx:rand(-4,4),vy:rand(-6,2),life:rand(30,70),r:rand(1,3),c:color||'#fff'} }
+
+  // draw helpers
+  function drawRect(x,y,w,h,color,glow){ ctx.fillStyle=color; roundRect(ctx,x,y,w,h,8); ctx.fill(); if(glow) { ctx.save(); ctx.globalAlpha=0.12; ctx.fillStyle=color; ctx.fillRect(x-8,y-8,w+16,h+16); ctx.restore(); } }
+  function drawCircle(x,y,r,color){ ctx.beginPath(); ctx.fillStyle=color; ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+  function fillGlow(x,y,size,color){ const g = ctx.createRadialGradient(x,y,0,x,y,size); g.addColorStop(0, color); g.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,size,0,Math.PI*2); ctx.fill(); }
+  function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  // game loop control
+  let desiredFPS = 60; let lastTime = 0; let accum = 0; const step = 1000/60;
+  function animate(ts){ if(!gameRunning) return; if(!lastTime) lastTime = ts; const delta = ts - lastTime; lastTime = ts; accum += delta; const targetStep = 1000/desiredFPS;
+    // simple fps limiter
+    if(accum > 1000) accum = 0;
+    while(accum >= targetStep){ update(); accum -= targetStep; }
+    draw(); requestAnimationFrame(animate);
   }
 
   // update
-  let invuln = 0;
   function update(){
     // input
-    if(touchX!=null){
-      const rect = canvas.getBoundingClientRect();
-      const tx = (touchX - rect.left);
-      player.x += (tx - player.x) * 0.12;
-    } else {
-      let mv = 0;
-      if(keys['arrowleft']||keys['a']) mv -= 1;
-      if(keys['arrowright']||keys['d']) mv += 1;
-      player.vx = mv * player.speed;
-      player.x += player.vx;
-    }
-    // bounds
-    player.x = Math.max(20, Math.min(W - 20 - player.w, player.x));
+    if(leftHold) player.x -= player.speed; else if(rightHold) player.x += player.speed;
+    if(touchX!=null){ const rect = canvas.getBoundingClientRect(); const tx = (touchX - rect.left); player.x += (tx - player.x) * 0.12; }
+    else { let mv = 0; if(keys['arrowleft']||keys['a']) mv -= 1; if(keys['arrowright']||keys['d']) mv += 1; player.vx = mv * player.speed; player.x += player.vx; }
+    player.x = Math.max(12, Math.min(W - 12 - player.w, player.x));
+
+    // spawn logic
+    obstacleTimer++;
+    if(obstacleTimer > obstacleInterval){ obstacleTimer = 0; spawnObstacle(); if(Math.random() < 0.18) spawnPowerup(); if(obstacleInterval > 20) obstacleInterval *= 0.993; }
 
     // obstacles
-    obstacleTimer++;
-    if(obstacleTimer > obstacleInterval){
-      obstacleTimer = 0;
-      spawnObstacle();
-      if(Math.random() < 0.14) spawnPowerup();
-      if(obstacleInterval > 28) obstacleInterval *= 0.99;
-    }
-    for(let i=obstacles.length-1;i>=0;i--){
-      const o = obstacles[i]; o.y += o.vy;
-      if(o.y > H + 60){ obstacles.splice(i,1); score += 1; document.getElementById('score').textContent = Math.floor(score); }
-      // collision
-      if(invuln <= 0 && rectIntersect(player.x, player.y, player.w, player.h, o.x, o.y, o.w, o.h)){
-        // explode
-        for(let k=0;k<20;k++) parts.push(particle(player.x + player.w/2, player.y + player.h/2));
-        endGame();
-      }
-    }
+    for(let i=obstacles.length-1;i>=0;i--){ const o=obstacles[i]; o.y += o.vy; if(o.y > H + 80){ obstacles.splice(i,1); score += 1; document.getElementById('score').textContent = Math.floor(score);} if(invuln<=0 && rectIntersect(player.x, player.y, player.w, player.h, o.x, o.y, o.w, o.h) && !inBoss){ for(let k=0;k<18;k++) parts.push(particle(player.x + player.w/2, player.y + player.h/2)); beep(120); endGame(); }}
 
     // powerups
-    for(let i=powerups.length-1;i>=0;i--){
-      const p = powerups[i]; p.y += p.vy;
-      if(rectCircleColl(player.x, player.y, player.w, player.h, p.x, p.y, p.r)){
-        powerups.splice(i,1);
-        invuln = 180; // 3 seconds at 60fps
-        score += 5;
-      } else if(p.y > H + 40) powerups.splice(i,1);
-    }
+    for(let i=powerups.length-1;i>=0;i--){ const p=powerups[i]; p.y += p.vy; if(rectCircleColl(player.x, player.y, player.w, player.h, p.x, p.y, p.r)){ powerups.splice(i,1); if(p.type==='inv'){ invuln = 180; beep(800); } else if(p.type==='slow'){ obstacles.forEach(o=>o.vy*=0.6); setTimeout(()=>{obstacles.forEach(o=>o.vy/=0.6)},3000); beep(520); } else if(p.type==='score'){ score += 8; beep(1000);} } else if(p.y > H+40) powerups.splice(i,1); }
 
     // particles
     for(let i=parts.length-1;i>=0;i--){ parts[i].x += parts[i].vx; parts[i].y += parts[i].vy; parts[i].life--; if(parts[i].life<=0) parts.splice(i,1); }
 
-    if(invuln > 0) invuln--;
-  }
+    // invuln
+    if(invuln>0) invuln--;
 
-  function rectIntersect(ax,ay,aw,ah,bx,by,bw,bh){ return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by; }
-  function rectCircleColl(rx,ry,rw,rh,cx,cy,cr){
-    const nearestX = Math.max(rx, Math.min(cx, rx + rw));
-    const nearestY = Math.max(ry, Math.min(cy, ry + rh));
-    const dx = cx - nearestX, dy = cy - nearestY;
-    return (dx*dx + dy*dy) < cr*cr;
-  }
+    // level timer & boss
+    levelTimer++; if(levelTimer > 1200){ levelTimer=0; level++; document.getElementById('level').textContent=level; obstacleInterval *= 0.92; beep(600); }
+    if(level >=5 && !inBoss){ spawnBoss(); }
 
-  function particle(x,y){ return {x,y,vx:rand(-4,4),vy:rand(-6,2),life:rand(30,70),r:rand(1,3)} }
-
-  // draw
-  function draw(){
-    // background grid
-    ctx.clearRect(0,0,W,H);
-    // moving starfield
-    for(let i=0;i<70;i++){ const sx = (i*47 + (score*0.7)) % W; const sy = (i*83) % H; drawCircle(sx, sy, 0.7 + (i%3)*0.3, 'rgba(255,255,255,'+ (0.03 + (i%5)*0.02) +')'); }
-
-    // obstacles
-    for(const o of obstacles){
-      drawRect(o.x, o.y, o.w, o.h, '#ff4de0');
-      // glow
-      ctx.save(); ctx.globalAlpha = 0.14; ctx.fillStyle='#ff4de0'; ctx.fillRect(o.x-6, o.y-6, o.w+12, o.h+12); ctx.restore();
+    if(inBoss && boss){ // boss moves and shoots little obstacles
+      boss.y += boss.vy; if(boss.y > 40) boss.vy = 0;
+      // boss occasional projectile
+      if(Math.random() < 0.08) {
+        const bx = rand(boss.x+20, boss.x + boss.w-20); obstacles.push({x:bx, y: boss.y + boss.h, w:12, h:12, vy:3 + level*0.2});
+      }
+      // collision player vs boss
+      if(invuln<=0 && rectIntersect(player.x, player.y, player.w, player.h, boss.x, boss.y, boss.w, boss.h)){
+        for(let k=0;k<30;k++) parts.push(particle(player.x + player.w/2, player.y + player.h/2)); beep(120); endGame(); }
+      // boss hit detection (player 'attacks' by dodging under projectiles - simplified)
+      // if many obstacles pass under boss, reduce hp
+      boss.hp -= 0; // placeholder for more complex interactions
+      if(boss.hp <= 0){ // boss defeated
+        inBoss=false; boss=null; score += 60; level = 1; document.getElementById('level').textContent = level; obstacleInterval = 70; beep(1200); }
     }
 
-    // powerups
-    for(const p of powerups){ drawCircle(p.x, p.y, p.r, '#ffd166'); ctx.save(); ctx.globalAlpha=0.12; fillGlow(p.x,p.y,30); ctx.restore(); }
-
-    // player
-    ctx.save();
-    if(invuln%10>4) ctx.globalAlpha = 0.6;
-    drawRect(player.x, player.y, player.w, player.h, '#00e5ff');
-    ctx.restore();
-    fillGlow(player.x + player.w/2, player.y + player.h/2, 44);
-
-    // particles
-    for(const p of parts){ drawCircle(p.x, p.y, p.r, 'rgba(255,255,255,0.9)'); }
-
-    // HUD subtle
-    ctx.save(); ctx.globalAlpha=0.06; ctx.fillStyle='#00e5ff'; ctx.fillRect(0,H-60,W,60); ctx.restore();
   }
 
-  function drawRect(x,y,w,h,color){ ctx.fillStyle = color; roundRect(ctx,x,y,w,h,6); ctx.fill(); }
-  function drawCircle(x,y,r,color){ ctx.beginPath(); ctx.fillStyle = color; ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
-  function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-  function fillGlow(x,y,size){ const g = ctx.createRadialGradient(x,y,0,x,y,size); g.addColorStop(0,'rgba(0,229,255,0.18)'); g.addColorStop(1,'rgba(0,229,255,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,size,0,Math.PI*2); ctx.fill(); }
+  function endGame(){ gameRunning=false; document.getElementById('finalScore').textContent = 'Score: ' + Math.floor(score); if(Math.floor(score) > high){ high = Math.floor(score); localStorage.setItem('neon-high', high); document.getElementById('high').textContent = high; } gameOverOverlay.style.display='flex'; }
 
-  // main loop
-  let frames = 0;
-  function loop(){ if(!gameRunning) return; frames++; update(); draw(); requestAnimationFrame(loop); }
+  // draw
+  function draw(){ ctx.clearRect(0,0,W,H);
+    // starfield
+    for(let i=0;i<70;i++){ const sx = (i*47 + (score*0.7)) % W; const sy = (i*83 + (i*3)) % H; ctx.fillStyle = 'rgba(255,255,255,' + (0.03 + (i%5)*0.02) + ')'; ctx.fillRect(sx,sy,1,1); }
 
-  // responsive resize
-  addEventListener('resize', ()=>{
-    const box = canvas.getBoundingClientRect(); W = box.width; H = box.height; canvas.width = W; canvas.height = H; ctx.setTransform(1,0,0,1,0,0); // keep simple on resize
-  });
+    // obstacles
+    for(const o of obstacles){ drawRect(o.x, o.y, o.w, o.h, 'rgba(255,77,224,0.95)', true); }
 
-  // initial menu
-  // small polish: let player 'float'
-  (function introFloat(){
-    let t=0; function f(){ if(!gameRunning){ player.y = H - 120 + Math.sin(t)*6; t+=0.06; draw(); requestAnimationFrame(f);} }
-    f();
-  })();
+    // powerups
+    for(const p of powerups){ const col = p.type==='inv' ? '#ffd166' : (p.type==='slow'?'#7ef1b8':'#8cc8ff'); drawCircle(p.x, p.y, p.r, col); fillGlow(p.x,p.y,26,col); }
+
+    // boss
+    if(inBoss && boss){ drawRect(boss.x,boss.y,boss.w,boss.h,'#ff0044',true); ctx.fillStyle='#fff'; ctx.fillText('BOSS HP: '+boss.hp, boss.x+12, boss.y+18); }
+
+    // player
+    ctx.save(); if(invuln%10>4) ctx.globalAlpha = 0.6; drawRect(player.x, player.y, player.w, player.h, '#00e5ff', true); ctx.restore(); fillGlow(player.x + player.w/2, player.y + player.h/2, 46,'rgba(0,229,255,0.12)');
+
+    // particles
+    for(const p of parts) { ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill(); }
+
+    // HUD subtle
+    ctx.save(); ctx.globalAlpha=0.06; ctx.fillStyle='var(--neon1)'; ctx.fillRect(0,H-58,W,58); ctx.restore();
+  }
+
+  // start / restart
+  function startGame(quick=false){ startOverlay.style.display='none'; gameOverOverlay.style.display='none';
+    obstacles.length=0; powerups.length=0; parts.length=0; score=0; document.getElementById('score').textContent=score; player.x = W/2; player.vx=0; obstacleInterval=70; level=1; document.getElementById('level').textContent=1; levelTimer=0; invuln=0; boss=null; inBoss=false; gameRunning=true; if(quick) difficulty='normal'; requestAnimationFrame(animate); }
+
+  // resize
+  addEventListener('resize', ()=>{ const box = canvas.getBoundingClientRect(); W = box.width || canvas.width; H = box.height || canvas.height; canvas.width = W; canvas.height = H; ctx.setTransform(1,0,0,1,0,0); });
+
+  // initial floating intro
+  (function introFloat(){ let t=0; function f(){ if(!gameRunning){ player.y = H - 140 + Math.sin(t)*6; t+=0.06; draw(); requestAnimationFrame(f);} } f(); })();
+
+  // show touchbar on small screens
+  function checkTouchbar(){ if(window.innerWidth < 720) document.getElementById('touchbar').style.display='flex'; else document.getElementById('touchbar').style.display='none'; }
+  checkTouchbar(); addEventListener('resize', checkTouchbar);
+
+  // initial sound / settings values
+  document.getElementById('soundToggle').checked = soundOn;
+  document.getElementById('vol').value = masterVol;
+  document.getElementById('fpsSel').value = desiredFPS;
+
+  // friendly helper: spawn a gentle stream of powerups in menu to show variety
+  (function menuLoop(){ if(startOverlay.style.display!=='none'){ if(Math.random()<0.02) spawnPowerup(); for(let i=powerups.length-1;i>=0;i--){ powerups[i].y += 1; if(powerups[i].y > H+40) powerups.splice(i,1);} draw(); } requestAnimationFrame(menuLoop); })();
 
   </script>
 </body>
