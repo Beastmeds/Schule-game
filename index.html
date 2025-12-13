@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Dodger ULTIMATE</title>
+
+<style>
+:root{
+  --bg:#070b18;
+  --neon:#00e5ff;
+  --pink:#ff4de0;
+  --text:#dbe7ff;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,Arial;}
+canvas{display:block;margin:auto;border-radius:14px;box-shadow:0 0 40px rgba(0,229,255,.25);pointer-events:none}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000}
+.panel{background:rgba(0,0,0,.6);padding:20px;border-radius:14px;max-width:90%;text-align:center}
+button{background:none;border:1px solid var(--neon);color:var(--text);padding:10px 14px;border-radius:10px;margin:4px;font-size:16px}
+.ui{position:fixed;top:10px;left:10px;z-index:100}
+.touchbar{position:fixed;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:20px;z-index:100}
+.touchbtn{width:120px;height:60px;border-radius:14px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:30px}
+#leaderboardOverlay{display:none}
+</style>
+</head>
+
+<body>
+
+<canvas id="game" width="900" height="550"></canvas>
+
+<div class="ui">
+Score: <span id="score">0</span> |
+Level: <span id="level">1</span>
+</div>
+
+<div class="touchbar">
+<div class="touchbtn" id="leftBtn">◀</div>
+<div class="touchbtn" id="rightBtn">▶</div>
+</div>
+
+<!-- START -->
+<div id="start" class="overlay">
+  <div class="panel">
+    <h1>NEON DODGER</h1>
+    <button onclick="startGame()">START</button>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameOver" class="overlay" style="display:none">
+  <div class="panel">
+    <h2>Game Over</h2>
+    <p id="finalScore"></p>
+    <input id="playerName" placeholder="Name" />
+    <br>
+    <button onclick="submitScore()">Score senden</button>
+    <button onclick="showLeaderboard()">Leaderboard</button>
+    <button onclick="startGame()">Nochmal</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="leaderboardOverlay" class="overlay">
+  <div class="panel">
+    <h2>🏆 Leaderboard</h2>
+    <div id="leaderboardList"></div>
+    <button onclick="closeLeaderboard()">Schließen</button>
+  </div>
+</div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, push, set, query, orderByChild, limitToLast, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyBfldLBX55zp-NOd1KVBmf-7emdWZswDTs",
+  authDomain: "beast-bot-dashboard.firebaseapp.com",
+  databaseURL: "https://beast-bot-dashboard-default-rtdb.firebaseio.com"
+});
+
+const db = getDatabase(app);
+window.lbRef = ref(db,"leaderboard");
+
+window.sendScore = async (name,score)=>{
+  await set(push(lbRef),{name,score});
+};
+
+window.loadScores = async ()=>{
+  const q = query(lbRef, orderByChild("score"), limitToLast(10));
+  const snap = await get(q);
+  const arr=[];
+  snap.forEach(c=>arr.push(c.val()));
+  return arr.sort((a,b)=>b.score-a.score);
+};
+</script>
+
+<!-- GAME -->
+<script>
+const c = document.getElementById("game"), ctx = c.getContext("2d");
+let player, obstacles, boss, score, level, running;
+let left=false,right=false;
+
+document.getElementById("leftBtn").ontouchstart=()=>left=true;
+document.getElementById("leftBtn").ontouchend=()=>left=false;
+document.getElementById("rightBtn").ontouchstart=()=>right=true;
+document.getElementById("rightBtn").ontouchend=()=>right=false;
+
+function startGame(){
+  document.getElementById("start").style.display="none";
+  document.getElementById("gameOver").style.display="none";
+  player={x:430,y:470,w:40,h:40,speed:7};
+  obstacles=[];
+  boss=null;
+  score=0;
+  level=1;
+  running=true;
+  loop();
+}
+
+function loop(){
+  if(!running) return;
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update(){
+  if(left) player.x-=player.speed;
+  if(right) player.x+=player.speed;
+  player.x=Math.max(0,Math.min(c.width-player.w,player.x));
+
+  score+=0.2;
+  document.getElementById("score").textContent=Math.floor(score);
+
+  if(score>300 && !boss){
+    boss={x:300,y:50,w:300,h:40,hp:300,phase:1,dir:3};
+  }
+
+  if(boss){
+    boss.x+=boss.dir;
+    if(boss.x<0||boss.x+boss.w>c.width) boss.dir*=-1;
+    if(boss.hp<200) boss.phase=2;
+    if(boss.hp<100) boss.phase=3;
+    if(Math.random()<0.04*boss.phase){
+      obstacles.push({x:boss.x+boss.w/2,y:boss.y+h,w:10,h:20,vy:5+boss.phase});
+    }
+  }
+
+  obstacles.forEach(o=>o.y+=o.vy);
+  obstacles = obstacles.filter(o=>{
+    if(collide(player,o)) gameOver();
+    return o.y<c.height;
+  });
+}
+
+function draw(){
+  ctx.clearRect(0,0,c.width,c.height);
+
+  // glow
+  ctx.shadowBlur=20;
+  ctx.shadowColor="#00e5ff";
+  ctx.fillStyle="#00e5ff";
+  ctx.fillRect(player.x,player.y,player.w,player.h);
+
+  ctx.shadowColor="#ff4de0";
+  obstacles.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h));
+
+  if(boss){
+    ctx.shadowColor="#ff4de0";
+    ctx.fillRect(boss.x,boss.y,boss.w,boss.h);
+    ctx.fillStyle="#fff";
+    ctx.fillRect(boss.x,boss.y-8,(boss.hp/300)*boss.w,4);
+  }
+}
+
+function collide(a,b){
+  return !(b.x>a.x+a.w||b.x+b.w<a.x||b.y>a.y+a.h||b.y+b.h<a.y);
+}
+
+function gameOver(){
+  running=false;
+  document.getElementById("finalScore").textContent="Score: "+Math.floor(score);
+  document.getElementById("gameOver").style.display="flex";
+}
+
+async function submitScore(){
+  const n=document.getElementById("playerName").value||"Anonym";
+  await sendScore(n,Math.floor(score));
+}
+
+async function showLeaderboard(){
+  const list=await loadScores();
+  const el=document.getElementById("leaderboardList");
+  el.innerHTML=list.map((s,i)=>`${i+1}. ${s.name}: ${s.score}`).join("<br>");
+  document.getElementById("leaderboardOverlay").style.display="flex";
+}
+function closeLeaderboard(){
+  document.getElementById("leaderboardOverlay").style.display="none";
+}
+</script>
+
+</body>
+</html>
