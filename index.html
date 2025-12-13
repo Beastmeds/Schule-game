@@ -3,203 +3,262 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Neon Dodger ULTIMATE</title>
+<title>Neon Dodger – HELL MODE</title>
 
 <style>
-:root{
-  --bg:#070b18;
-  --neon:#00e5ff;
-  --pink:#ff4de0;
-  --text:#dbe7ff;
+html,body{
+  margin:0;
+  background:#040611;
+  color:#eaf2ff;
+  font-family:system-ui;
+  overflow:hidden;
 }
-*{box-sizing:border-box;}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,Arial;}
-canvas{display:block;margin:auto;border-radius:14px;box-shadow:0 0 40px rgba(0,229,255,.25);pointer-events:none}
-.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000}
-.panel{background:rgba(0,0,0,.6);padding:20px;border-radius:14px;max-width:90%;text-align:center}
-button{background:none;border:1px solid var(--neon);color:var(--text);padding:10px 14px;border-radius:10px;margin:4px;font-size:16px}
-.ui{position:fixed;top:10px;left:10px;z-index:100}
-.touchbar{position:fixed;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:20px;z-index:100}
-.touchbtn{width:120px;height:60px;border-radius:14px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:30px}
-#leaderboardOverlay{display:none}
+canvas{
+  display:block;
+  margin:auto;
+  background:radial-gradient(circle at top,#0a0f2a,#040611);
+  border-radius:18px;
+  box-shadow:0 0 40px #00e5ff55;
+}
+.ui{
+  position:fixed;
+  top:10px;
+  left:10px;
+  z-index:10;
+  font-size:18px;
+}
+.touch{
+  position:fixed;
+  bottom:10px;
+  left:0;
+  right:0;
+  display:flex;
+  justify-content:center;
+  gap:30px;
+}
+.btn{
+  width:120px;
+  height:60px;
+  border-radius:18px;
+  background:#ffffff10;
+  backdrop-filter:blur(6px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:32px;
+  user-select:none;
+}
+.overlay{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:#000000cc;
+}
+.panel{
+  background:#080c22;
+  padding:20px;
+  border-radius:16px;
+  text-align:center;
+}
 </style>
 </head>
 
 <body>
 
-<canvas id="game" width="900" height="550"></canvas>
+<canvas id="c" width="900" height="520"></canvas>
 
 <div class="ui">
-Score: <span id="score">0</span> |
-Level: <span id="level">1</span>
+Score: <span id="score">0</span><br>
+Boss Phase: <span id="phase">-</span>
 </div>
 
-<div class="touchbar">
-<div class="touchbtn" id="leftBtn">◀</div>
-<div class="touchbtn" id="rightBtn">▶</div>
+<div class="touch">
+  <div class="btn" id="left">◀</div>
+  <div class="btn" id="right">▶</div>
 </div>
 
-<!-- START -->
-<div id="start" class="overlay">
+<div class="overlay" id="gameover">
   <div class="panel">
-    <h1>NEON DODGER</h1>
-    <button onclick="startGame()">START</button>
+    <h2>GAME OVER</h2>
+    <p>Score: <span id="finalScore"></span></p>
+    <button onclick="location.reload()">Restart</button>
   </div>
 </div>
 
-<!-- GAME OVER -->
-<div id="gameOver" class="overlay" style="display:none">
-  <div class="panel">
-    <h2>Game Over</h2>
-    <p id="finalScore"></p>
-    <input id="playerName" placeholder="Name" />
-    <br>
-    <button onclick="submitScore()">Score senden</button>
-    <button onclick="showLeaderboard()">Leaderboard</button>
-    <button onclick="startGame()">Nochmal</button>
-  </div>
-</div>
-
-<!-- LEADERBOARD -->
-<div id="leaderboardOverlay" class="overlay">
-  <div class="panel">
-    <h2>🏆 Leaderboard</h2>
-    <div id="leaderboardList"></div>
-    <button onclick="closeLeaderboard()">Schließen</button>
-  </div>
-</div>
-
-<!-- FIREBASE -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getDatabase, ref, push, set, query, orderByChild, limitToLast, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-
-const app = initializeApp({
-  apiKey: "AIzaSyBfldLBX55zp-NOd1KVBmf-7emdWZswDTs",
-  authDomain: "beast-bot-dashboard.firebaseapp.com",
-  databaseURL: "https://beast-bot-dashboard-default-rtdb.firebaseio.com"
-});
-
-const db = getDatabase(app);
-window.lbRef = ref(db,"leaderboard");
-
-window.sendScore = async (name,score)=>{
-  await set(push(lbRef),{name,score});
-};
-
-window.loadScores = async ()=>{
-  const q = query(lbRef, orderByChild("score"), limitToLast(10));
-  const snap = await get(q);
-  const arr=[];
-  snap.forEach(c=>arr.push(c.val()));
-  return arr.sort((a,b)=>b.score-a.score);
-};
-</script>
-
-<!-- GAME -->
 <script>
-const c = document.getElementById("game"), ctx = c.getContext("2d");
-let player, obstacles, boss, score, level, running;
-let left=false,right=false;
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+const W = c.width, H = c.height;
 
-document.getElementById("leftBtn").ontouchstart=()=>left=true;
-document.getElementById("leftBtn").ontouchend=()=>left=false;
-document.getElementById("rightBtn").ontouchstart=()=>right=true;
-document.getElementById("rightBtn").ontouchend=()=>right=false;
+let keys = {};
+let leftHold=false,rightHold=false;
+let score=0;
+let gameOver=false;
 
-function startGame(){
-  document.getElementById("start").style.display="none";
-  document.getElementById("gameOver").style.display="none";
-  player={x:430,y:470,w:40,h:40,speed:7};
-  obstacles=[];
-  boss=null;
-  score=0;
-  level=1;
-  running=true;
-  loop();
+const player={x:W/2-20,y:H-70,w:40,h:40,speed:6};
+
+let obstacles=[];
+let bullets=[];
+let ghosts=[];
+let boss=null;
+let bossPhase=0;
+
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
+document.getElementById("left").ontouchstart=()=>leftHold=true;
+document.getElementById("left").ontouchend=()=>leftHold=false;
+document.getElementById("right").ontouchstart=()=>rightHold=true;
+document.getElementById("right").ontouchend=()=>rightHold=false;
+
+function rect(a,b,c,d,e,f,g,h){
+  return a<e+g && a+c>e && b<f+h && b+d>f;
+}
+
+/* SOUND */
+const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+function beep(freq,d=0.1){
+  const o=audioCtx.createOscillator();
+  const g=audioCtx.createGain();
+  o.frequency.value=freq;
+  o.connect(g);g.connect(audioCtx.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+d);
+}
+
+/* GHOST MULTIPLAYER (SIMULIERT) */
+for(let i=0;i<4;i++){
+  ghosts.push({
+    x:Math.random()*W,
+    y:H-70,
+    dir:Math.random()<0.5?-1:1
+  });
+}
+
+function spawnBoss(){
+  boss={x:W/2-80,y:50,w:160,h:40,hp:400,dir:1};
+}
+
+spawnBoss();
+
+function update(){
+  if(gameOver) return;
+
+  let move=0;
+  if(keys["ArrowLeft"]||keys["a"]||leftHold) move=-1;
+  if(keys["ArrowRight"]||keys["d"]||rightHold) move=1;
+  player.x+=move*player.speed;
+  player.x=Math.max(0,Math.min(W-player.w,player.x));
+
+  score+=0.2;
+  document.getElementById("score").textContent=Math.floor(score);
+
+  /* GHOSTS */
+  ghosts.forEach(g=>{
+    g.x+=g.dir*2;
+    if(g.x<0||g.x>W-40) g.dir*=-1;
+  });
+
+  /* BOSS */
+  if(boss){
+    boss.x+=boss.dir*3;
+    if(boss.x<0||boss.x+boss.w>W) boss.dir*=-1;
+
+    if(boss.hp>300) bossPhase=1;
+    else if(boss.hp>200) bossPhase=2;
+    else if(boss.hp>100) bossPhase=3;
+    else bossPhase=4;
+
+    document.getElementById("phase").textContent=bossPhase;
+
+    if(Math.random()<0.05){
+      const count=bossPhase*2;
+      for(let i=0;i<count;i++){
+        const angle=(Math.PI*2/count)*i;
+        bullets.push({
+          x:boss.x+boss.w/2,
+          y:boss.y+boss.h,
+          vx:Math.cos(angle)*(bossPhase+2),
+          vy:Math.sin(angle)*(bossPhase+2)
+        });
+      }
+      beep(120);
+    }
+
+    if(rect(player.x,player.y,player.w,player.h,boss.x,boss.y,boss.w,boss.h)){
+      end();
+    }
+
+    boss.hp-=0.3;
+    if(boss.hp<=0){
+      boss=null;
+      score+=1000;
+    }
+  }
+
+  /* BULLETS */
+  for(let i=bullets.length-1;i>=0;i--){
+    const b=bullets[i];
+    b.x+=b.vx;
+    b.y+=b.vy;
+    if(rect(player.x,player.y,player.w,player.h,b.x-4,b.y-4,8,8)) end();
+    if(b.x<0||b.x>W||b.y<0||b.y>H) bullets.splice(i,1);
+  }
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  /* PLAYER */
+  ctx.fillStyle="#00e5ff";
+  ctx.shadowColor="#00e5ff";
+  ctx.shadowBlur=20;
+  ctx.fillRect(player.x,player.y,player.w,player.h);
+  ctx.shadowBlur=0;
+
+  /* GHOSTS */
+  ctx.globalAlpha=0.4;
+  ctx.fillStyle="#ffffff";
+  ghosts.forEach(g=>ctx.fillRect(g.x,g.y,40,40));
+  ctx.globalAlpha=1;
+
+  /* BOSS */
+  if(boss){
+    ctx.fillStyle="#ff4de0";
+    ctx.shadowColor="#ff4de0";
+    ctx.shadowBlur=30;
+    ctx.fillRect(boss.x,boss.y,boss.w,boss.h);
+    ctx.shadowBlur=0;
+
+    ctx.fillStyle="#fff";
+    ctx.fillRect(boss.x,boss.y-6,(boss.hp/400)*boss.w,4);
+  }
+
+  /* BULLETS */
+  ctx.fillStyle="#ff3b3b";
+  bullets.forEach(b=>{
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,4,0,Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function end(){
+  if(gameOver) return;
+  gameOver=true;
+  beep(60,0.5);
+  document.getElementById("finalScore").textContent=Math.floor(score);
+  document.getElementById("gameover").style.display="flex";
 }
 
 function loop(){
-  if(!running) return;
   update();
   draw();
   requestAnimationFrame(loop);
 }
 
-function update(){
-  if(left) player.x-=player.speed;
-  if(right) player.x+=player.speed;
-  player.x=Math.max(0,Math.min(c.width-player.w,player.x));
-
-  score+=0.2;
-  document.getElementById("score").textContent=Math.floor(score);
-
-  if(score>300 && !boss){
-    boss={x:300,y:50,w:300,h:40,hp:300,phase:1,dir:3};
-  }
-
-  if(boss){
-    boss.x+=boss.dir;
-    if(boss.x<0||boss.x+boss.w>c.width) boss.dir*=-1;
-    if(boss.hp<200) boss.phase=2;
-    if(boss.hp<100) boss.phase=3;
-    if(Math.random()<0.04*boss.phase){
-      obstacles.push({x:boss.x+boss.w/2,y:boss.y+h,w:10,h:20,vy:5+boss.phase});
-    }
-  }
-
-  obstacles.forEach(o=>o.y+=o.vy);
-  obstacles = obstacles.filter(o=>{
-    if(collide(player,o)) gameOver();
-    return o.y<c.height;
-  });
-}
-
-function draw(){
-  ctx.clearRect(0,0,c.width,c.height);
-
-  // glow
-  ctx.shadowBlur=20;
-  ctx.shadowColor="#00e5ff";
-  ctx.fillStyle="#00e5ff";
-  ctx.fillRect(player.x,player.y,player.w,player.h);
-
-  ctx.shadowColor="#ff4de0";
-  obstacles.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h));
-
-  if(boss){
-    ctx.shadowColor="#ff4de0";
-    ctx.fillRect(boss.x,boss.y,boss.w,boss.h);
-    ctx.fillStyle="#fff";
-    ctx.fillRect(boss.x,boss.y-8,(boss.hp/300)*boss.w,4);
-  }
-}
-
-function collide(a,b){
-  return !(b.x>a.x+a.w||b.x+b.w<a.x||b.y>a.y+a.h||b.y+b.h<a.y);
-}
-
-function gameOver(){
-  running=false;
-  document.getElementById("finalScore").textContent="Score: "+Math.floor(score);
-  document.getElementById("gameOver").style.display="flex";
-}
-
-async function submitScore(){
-  const n=document.getElementById("playerName").value||"Anonym";
-  await sendScore(n,Math.floor(score));
-}
-
-async function showLeaderboard(){
-  const list=await loadScores();
-  const el=document.getElementById("leaderboardList");
-  el.innerHTML=list.map((s,i)=>`${i+1}. ${s.name}: ${s.score}`).join("<br>");
-  document.getElementById("leaderboardOverlay").style.display="flex";
-}
-function closeLeaderboard(){
-  document.getElementById("leaderboardOverlay").style.display="none";
-}
+loop();
 </script>
-
 </body>
 </html>
