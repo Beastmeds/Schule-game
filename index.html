@@ -2,83 +2,217 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Voxel World</title>
+<title>Voxel Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<!-- PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest.json">
+
 <style>
-  body { margin:0; overflow:hidden; background:#000; }
-  #info {
-    position:fixed; top:10px; left:10px;
-    color:white; font-family:monospace;
-    background:rgba(0,0,0,.5); padding:8px;
-  }
+html,body { margin:0; padding:0; overflow:hidden; background:#000; }
+#ui {
+  position:fixed; top:10px; left:10px;
+  color:white; font-family:monospace;
+  background:rgba(0,0,0,.6);
+  padding:8px; border-radius:6px;
+}
+#mobile {
+  position:fixed; bottom:20px; left:50%;
+  transform:translateX(-50%);
+}
+button {
+  font-size:20px; padding:10px; margin:4px;
+}
 </style>
 </head>
 <body>
-<div id="info">WASD bewegen · Maus schauen · Klick Block</div>
+
+<div id="ui">
+WASD / Touch<br>
+Linksklick: abbauen<br>
+Rechtsklick: setzen<br>
+S: speichern · L: laden
+</div>
+
+<div id="mobile">
+<button ontouchstart="keys.w=true" ontouchend="keys.w=false">▲</button><br>
+<button ontouchstart="keys.a=true" ontouchend="keys.a=false">◀</button>
+<button ontouchstart="keys.s=true" ontouchend="keys.s=false">▼</button>
+<button ontouchstart="keys.d=true" ontouchend="keys.d=false">▶</button>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
+/* ---------- BASIC SETUP ---------- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
-camera.position.set(5,5,5);
+camera.position.set(8,6,8);
 
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Licht
-scene.add(new THREE.AmbientLight(0xffffff, .6));
-const sun = new THREE.DirectionalLight(0xffffff, .8);
-sun.position.set(10,20,10);
+window.addEventListener("resize",()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------- LIGHT ---------- */
+scene.add(new THREE.AmbientLight(0xffffff,0.6));
+const sun = new THREE.DirectionalLight(0xffffff,0.8);
+sun.position.set(20,40,10);
 scene.add(sun);
 
-// Boden
-const blocks = [];
+/* ---------- BLOCK SYSTEM ---------- */
 const geo = new THREE.BoxGeometry(1,1,1);
-const mat = new THREE.MeshStandardMaterial({ color:0x55aa55 });
+const blocks = [];
+const CHUNK = 16;
+const chunks = {};
 
-for(let x=0;x<10;x++){
-  for(let z=0;z<10;z++){
-    const b = new THREE.Mesh(geo, mat);
-    b.position.set(x,0,z);
-    scene.add(b);
-    blocks.push(b);
+function addBlock(x,y,z,color=0x55aa55,opacity=1){
+  const mat = new THREE.MeshStandardMaterial({
+    color, transparent: opacity<1, opacity
+  });
+  const b = new THREE.Mesh(geo,mat);
+  b.position.set(x,y,z);
+  scene.add(b);
+  blocks.push(b);
+  return b;
+}
+
+/* ---------- WORLD GENERATION ---------- */
+function chunkKey(cx,cz){ return cx+","+cz; }
+
+function generateChunk(cx,cz){
+  const key = chunkKey(cx,cz);
+  if(chunks[key]) return;
+  chunks[key]=[];
+
+  for(let x=0;x<CHUNK;x++){
+    for(let z=0;z<CHUNK;z++){
+      const wx = cx*CHUNK+x;
+      const wz = cz*CHUNK+z;
+
+      if(Math.random()<0.15) continue; // Höhlen
+
+      addBlock(wx,0,wz);
+
+      if(Math.random()<0.03) tree(wx,wz);
+      if(Math.random()<0.02) addBlock(wx,-1,wz,0x3366ff,0.6);
+    }
   }
 }
 
-// Steuerung
-const keys = {};
-addEventListener("keydown",e=>keys[e.key]=true);
-addEventListener("keyup",e=>keys[e.key]=false);
+/* ---------- TREE ---------- */
+function tree(x,z){
+  for(let y=1;y<=3;y++) addBlock(x,y,z,0x8b5a2b);
+  for(let dx=-1;dx<=1;dx++)
+    for(let dz=-1;dz<=1;dz++)
+      addBlock(x+dx,4,z+dz,0x228b22);
+}
 
-// Maus
+/* ---------- CONTROLS ---------- */
+const keys={};
+addEventListener("keydown",e=>{
+  keys[e.key.toLowerCase()]=true;
+  if(e.key==="s") saveWorld();
+  if(e.key==="l") loadWorld();
+});
+addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
 let mx=0,my=0;
 addEventListener("mousemove",e=>{
   if(document.pointerLockElement){
     mx -= e.movementX*0.002;
     my -= e.movementY*0.002;
-    my = Math.max(-1.5,Math.min(1.5,my));
+    my=Math.max(-1.5,Math.min(1.5,my));
+  }
+});
+addEventListener("click",()=>document.body.requestPointerLock());
+
+/* ---------- RAYCAST ---------- */
+const raycaster=new THREE.Raycaster();
+addEventListener("mousedown",e=>{
+  raycaster.setFromCamera({x:0,y:0},camera);
+  const hit=raycaster.intersectObjects(blocks);
+  if(hit[0] && e.button===0){
+    scene.remove(hit[0].object);
+    blocks.splice(blocks.indexOf(hit[0].object),1);
+  }
+});
+addEventListener("contextmenu",e=>{
+  e.preventDefault();
+  raycaster.setFromCamera({x:0,y:0},camera);
+  const hit=raycaster.intersectObjects(blocks);
+  if(hit[0]){
+    const p=hit[0].object.position.clone()
+      .add(hit[0].face.normal);
+    addBlock(p.x,p.y,p.z);
   }
 });
 
-addEventListener("click",()=>document.body.requestPointerLock());
+/* ---------- MOBS ---------- */
+class Mob{
+  constructor(color){
+    this.mesh=new THREE.Mesh(
+      new THREE.BoxGeometry(1,2,1),
+      new THREE.MeshStandardMaterial({color})
+    );
+    this.mesh.position.set(
+      Math.random()*20,1,Math.random()*20
+    );
+    scene.add(this.mesh);
+  }
+  update(){
+    this.mesh.position.lerp(camera.position,0.002);
+  }
+}
+const zombie=new Mob(0x00aa00);
+const krampus=new Mob(0xaa0000);
 
+/* ---------- SAVE / LOAD ---------- */
+function saveWorld(){
+  localStorage.setItem("world",
+    JSON.stringify(blocks.map(b=>b.position))
+  );
+  alert("Welt gespeichert!");
+}
+function loadWorld(){
+  const data=JSON.parse(localStorage.getItem("world")||"[]");
+  blocks.forEach(b=>scene.remove(b));
+  blocks.length=0;
+  data.forEach(p=>addBlock(p.x,p.y,p.z));
+}
+
+/* ---------- LOOP ---------- */
 function animate(){
   requestAnimationFrame(animate);
 
-  camera.rotation.y = mx;
-  camera.rotation.x = my;
+  camera.rotation.y=mx;
+  camera.rotation.x=my;
 
-  const dir = new THREE.Vector3();
+  const dir=new THREE.Vector3();
   camera.getWorldDirection(dir);
-  dir.y=0;
-  dir.normalize();
+  dir.y=0; dir.normalize();
 
-  if(keys.w) camera.position.add(dir.multiplyScalar(0.1));
-  if(keys.s) camera.position.add(dir.multiplyScalar(-0.1));
-  if(keys.a) camera.position.x -= 0.1;
-  if(keys.d) camera.position.x += 0.1;
+  if(keys.w) camera.position.add(dir.multiplyScalar(0.12));
+  if(keys.s) camera.position.add(dir.multiplyScalar(-0.12));
+  if(keys.a) camera.position.x-=0.12;
+  if(keys.d) camera.position.x+=0.12;
+
+  const cx=Math.floor(camera.position.x/CHUNK);
+  const cz=Math.floor(camera.position.z/CHUNK);
+  for(let dx=-1;dx<=1;dx++)
+    for(let dz=-1;dz<=1;dz++)
+      generateChunk(cx+dx,cz+dz);
+
+  zombie.update();
+  krampus.update();
 
   renderer.render(scene,camera);
 }
